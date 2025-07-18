@@ -3,6 +3,7 @@
 /.env.local
 /.env.local.php
 /.env.*.local
+/.env.dev
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
 /var/
@@ -10,7 +11,7 @@
 ###< symfony/framework-bundle ###
 
 ###> phpstan/phpstan ###
-phpstan.neon
+/phpstan.neon
 ###< phpstan/phpstan ###
 
 ###> phpunit/phpunit ###
@@ -20,3 +21,5 @@ phpstan.neon
 
 # local development configs
 /.idea
+
+/data/*.sql

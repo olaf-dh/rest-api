@@ -7,7 +7,7 @@ namespace App\Service;
 use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use RuntimeException;
 
 readonly class FlagBitService
 {
@@ -42,25 +42,57 @@ readonly class FlagBitService
      */
     public function enableFlagBitForTransaction(int $transId, int $flagBitId, int $editorId): void
     {
-        $now = new DateTimeImmutable();
+        $this->connection->executeStatement('
+            CALL stamd_aendern_erstellen_flagbit_ref(
+                :datensatz_typ_id,
+                :datensatz_id,
+                :flagbit,
+                :modus,
+                :bearbeiter_id,
+                @out_error_code,
+                @out_error_msg
+            )
+        ', [
+            'datensatz_typ_id' => 2,
+            'datensatz_id'     => $transId,
+            'flagbit'          => $flagBitId,
+            'modus'            => 1,
+            'bearbeiter_id'    => $editorId,
+        ]);
 
-        $period = $this->connection->fetchAssociative('
-            SELECT zeitraum_id
-            FROM vorgaben_zeitraum
-            WHERE :date BETWEEN von AND bis
-            ORDER BY von DESC', ['date' => $now->format('Y-m-d H:i:s')]);
+        /** @var int|null $errorCode */
+        $errorCode = $this->connection->fetchOne('SELECT @out_error_code');
 
-        if (!$period) {
-            throw new \RuntimeException('No active period found.');
+        /** @var string $errorMsg */
+        $errorMsg  = $this->connection->fetchOne('SELECT @out_error_msg') ?: 'Unknown error';
+
+        if ($errorCode !== null && $errorCode !== 0) {
+            throw new RuntimeException(sprintf(
+                'FlagBit could not be enabled (Error code %s: %s).',
+                $errorCode,
+                $errorMsg
+            ));
         }
 
-        $this->connection->beginTransaction();
-        $this->connection->insert('stamd_flagbit_ref', [
-            'datensatz_typ_id' => 2,
-            'datensatz_id' => $transId,
-            'flagbit' => $flagBitId,
-            'zeitraum_id' => $period['zeitraum_id'],
-            'bearbeiter_id' => $editorId,
-        ]);
+//        $now = new DateTimeImmutable();
+//
+//        $period = $this->connection->fetchAssociative('
+//            SELECT zeitraum_id
+//            FROM vorgaben_zeitraum
+//            WHERE :date BETWEEN von AND bis
+//            ORDER BY von DESC', ['date' => $now->format('Y-m-d H:i:s')]);
+//
+//        if (!$period) {
+//            throw new \RuntimeException('No active period found.');
+//        }
+//
+//        $this->connection->beginTransaction();
+//        $this->connection->insert('stamd_flagbit_ref', [
+//            'datensatz_typ_id' => 2,
+//            'datensatz_id' => $transId,
+//            'flagbit' => $flagBitId,
+//            'zeitraum_id' => $period['zeitraum_id'],
+//            'bearbeiter_id' => $editorId,
+//        ]);
     }
 }

@@ -23,13 +23,27 @@ ddev exec symfony console cache:clear
 
 ## Datenbank vorbereiten
 
-Das Projekt verwendet MySQL. Ein vorbereiteter SQL-Dump ist im Verzeichnis `/data/db_export.sql` enthalten.
+Das Projekt verwendet MySQL. Ein vorbereiteter SQL-Dump ist in .zip-Datei enthalten.
 
 ```bash
-ddev exec mysql < data/db_export.sql
+ddev exec mysql < db_export.sql
 ```
 
 Hinweis: Der Dump enthält Beispiel-API-Keys, Transaktionen und Zeiträume.
+
+## Datenbank-Prozeduren
+
+Dieses Projekt verwendet mehrere MySQL Stored Procedures, unter anderem:
+
+- `api_erstelle_apikey`
+- `erstelle_zeitraum`
+- `stamd_aendern_erstellen_flagbit_ref`
+
+Die Prozeduren sind im SQL-Dump (`db_export.sql`) enthalten und werden beim Import automatisch in der Datenbank angelegt.
+
+Verwendung im Projekt:
+
+- Aktivieren eines 'FlagBit' erfolgt über die Prozedur `stamd_aendern_erstellen_flagbit_ref`.
 
 ## API verwenden
 

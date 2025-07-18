@@ -59,35 +59,24 @@ class FlagBitServiceTest extends KernelTestCase
      * @throws \PHPUnit\Framework\MockObject\Exception
      * @throws Exception
      */
-    public function testEnableFlagBitForTransactionInsertsRecord(): void
+    public function testEnableFlagBitForTransactionCallsProcedure(): void
     {
-        // mock for Doctrine\DBAL\Connection
         $dbMock = $this->createMock(Connection::class);
 
-        // simulate active period
-        $dbMock->method('fetchAssociative')
-            ->willReturn(['zeitraum_id' => 42]);
-
-        // expected: INSERT will be executed one time
         $dbMock->expects($this->once())
-            ->method('insert')
+            ->method('executeStatement')
             ->with(
-                'stamd_flagbit_ref',
-                $this->callback(function ($data) {
-                    /** @var array<string, mixed> $data */
-                    return $data['datensatz_typ_id'] === 2
-                        && $data['datensatz_id'] === 123
-                        && $data['flagbit'] === 5
-                        && $data['zeitraum_id'] === 42
-                        && $data['bearbeiter_id'] === 7;
-                })
+                $this->stringContains('CALL stamd_aendern_erstellen_flagbit_ref'),
+                $this->arrayHasKey('datensatz_id')
             );
+
+        $dbMock->method('fetchOne')->willReturn(0);
 
         $service = new FlagBitService($dbMock);
 
-        // call method
         $service->enableFlagBitForTransaction(123, 5, 7);
     }
+
 
     /**
      * @throws Exception
@@ -112,20 +101,23 @@ class FlagBitServiceTest extends KernelTestCase
      * @throws \PHPUnit\Framework\MockObject\Exception
      * @throws Exception
      */
-    public function testEnableFlagBitThrowsExceptionWhenNoTimeframe(): void
+    public function testEnableFlagBitThrowsExceptionOnProcedureError(): void
     {
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('No active period found.');
+        $this->expectExceptionMessage('FlagBit could not be enabled');
 
         $dbMock = $this->createMock(Connection::class);
 
-        // simulate a period that not exist
-        $dbMock->method('fetchAssociative')
-            ->willReturn(false);
+        $dbMock->method('executeStatement')->willReturn(1);
+
+        $dbMock->method('fetchOne')->willReturnOnConsecutiveCalls(
+            1,
+            'Test error in procedure'
+        );
 
         $service = new FlagBitService($dbMock);
 
-        // should throw exception
         $service->enableFlagBitForTransaction(123, 5, 7);
     }
+
 }

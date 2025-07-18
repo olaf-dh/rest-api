@@ -11,12 +11,11 @@ use RuntimeException;
 
 readonly class TestDatabaseHelper
 {
-    private DatabaseFixtures $fixtures;
+    private string $testDir;
 
     public function __construct(private Connection $connection)
     {
-        $fixtures = new DatabaseFixtures($this->connection);
-        $this->fixtures = $fixtures;
+        $this->testDir = realpath(__DIR__ . '/../');
     }
 
     /**
@@ -24,12 +23,14 @@ readonly class TestDatabaseHelper
      */
     public function resetSchema(): void
     {
-        $sql = file_get_contents(__DIR__ . '/../schema.sql');
+        $sql = file_get_contents($this->testDir . '/schema.sql');
 
         if ($sql === false) {
             throw new RuntimeException('Failed to read schema.sql file.');
         }
         $this->connection->executeStatement($sql);
+
+        $this->importStoredProcedures();
     }
 
     /**
@@ -37,10 +38,36 @@ readonly class TestDatabaseHelper
      */
     public function loadFixtures(): void
     {
-        $periodId = $this->fixtures->createValidTimeframe();
+        $fixtures = new DatabaseFixtures($this->connection);
+        $periodId = $fixtures->createValidTimeframe();
         $contractId = 42;
 
-        $this->fixtures->createTestTransaction($contractId);
-        $this->fixtures->createApiKey($contractId, $periodId, true);
+        $fixtures->createTestTransaction($contractId);
+        $fixtures->createApiKey($contractId, $periodId, true);
+    }
+
+    private function importStoredProcedures(): void
+    {
+        $procedureFile = $this->testDir . '/procedure.sql';
+
+        if (!file_exists($procedureFile)) {
+            throw new RuntimeException('Procedure file not found: ' . $procedureFile);
+        }
+
+        $content = file_get_contents($procedureFile);
+
+        if ($content === false) {
+            throw new RuntimeException('Failed to read procedure.sql file.');
+        }
+
+        $statements = explode(';;', $content);
+
+        foreach ($statements as $statement) {
+            $sql = trim($statement);
+
+            if ($sql !== '') {
+                $this->connection->executeStatement($sql);
+            }
+        }
     }
 }
